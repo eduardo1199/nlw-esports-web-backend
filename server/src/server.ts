@@ -2,8 +2,20 @@ import express from 'express';
 
 const app = express();
 
-app.get('/users', (request, response) => {
-  return response.json([
+app.get('/games', (req, res) => {
+  return res.json([]);
+});
+
+app.post('/ads', (req, res) => {
+  return res.status(201).json();
+});
+
+app.get('/games/:id/ads', (req, res) => {
+  return res.json([]);
+});
+
+app.get('/ads/:id/discord', (req, res) => {
+  return res.json([
     {
       id: 1,
       name: 'published 1'
@@ -16,10 +28,6 @@ app.get('/users', (request, response) => {
       id: 3,
       name: 'published 3'
     },
-    {
-      id: 4,
-      name: 'published 4'
-    }
   ]);
 });
 
