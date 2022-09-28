@@ -1,52 +1,92 @@
 import express from 'express';
-import { PrismaClient, Game, Ad } from '@prisma/client';
+import cors from 'cors';
+
+import { convertHourStringToMinuteString } from './utils/convert-hour-string-to-minutes';
+import { convertMinutesToHourString } from './utils/convert-minutes-to-hour-string';
+import { prisma } from './primicClient';
+
+import { getGamesRequest } from './requests/getGamesRequest';
 
 const app = express();
-const prisma = new PrismaClient({
-  log: ['query']
+
+app.use(express.json());
+app.use(cors());
+
+app.get('/games', getGamesRequest);
+
+app.post('/games/:id/ads', async (req, res) => {
+ const gameId = req.params.id;
+ const body = req.body;
+
+  const ad = await prisma.ad.create({
+    data: {
+      gameId,
+      name: body.name,
+      discord: body.discord,
+      hourEnd: convertHourStringToMinuteString(body.hourEnd),
+      hourStart: convertHourStringToMinuteString(body.hourStart),
+      useVoiceChannel: body.useVoiceChannel,
+      weekDays: body.weekDays.join(","),
+      yearsPlaying: body.yearsPlaying,
+    }
+  });
+
+  return res.status(200).json(ad);
 });
 
-app.get('/games', async (req, res) => {
+app.get('/games/:id/ads', async (req, res) => {
   try {
-    const games = await prisma.game.findMany({
-      include: {
-        _count: {
-          select: {
-            ads: true
-          }
-        }
+    const gameId = req.params.id;
+
+    const ads = await prisma.ad.findMany({
+      select: {
+        id: true,
+        name: true,
+        weekDays: true,
+        useVoiceChannel: true,
+        yearsPlaying: true,
+        hourEnd: true,
+        hourStart: true,
+        cretated: true,
+      },
+      where: {
+        gameId,
+      },
+      orderBy: {
+        cretated: 'desc'
       }
     });
-
-    return res.status(200).json(games);
+  
+    return res.status(200).json(ads.map(ad => {
+      return {
+        ...ad,
+        weekDays: ad.weekDays.split(','),
+        hourStart: convertMinutesToHourString(ad.hourStart),
+        hourEnd: convertMinutesToHourString(ad.hourEnd),
+      }
+    }));
   } catch (err) {
     return res.status(400).json('Error na requisição!')
   }
 });
 
-app.post('/ads', (req, res) => {
-  return res.status(201).json();
-});
+app.get('/ads/:id/discord', async (req, res) => {
+  try {
+    const AdId = req.params.id;
 
-app.get('/games/:id/ads', (req, res) => {
-  return res.json([]);
-});
+    const ad = await prisma.ad.findFirstOrThrow({
+      select: {
+        discord: true
+      },
+      where: {
+        id: AdId
+      }
+    });
 
-app.get('/ads/:id/discord', (req, res) => {
-  return res.json([
-    {
-      id: 1,
-      name: 'published 1'
-    },
-    {
-      id: 2,
-      name: 'published 2'
-    },
-    {
-      id: 3,
-      name: 'published 3'
-    },
-  ]);
+    return res.status(200).json({ discord: ad.discord });
+  } catch(err) {
+    return res.status(400).json('Error na requisição!')
+  } 
 });
 
 app.listen(3333);
